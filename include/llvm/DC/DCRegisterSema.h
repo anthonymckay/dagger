@@ -43,6 +43,10 @@ class MCRegisterInfo;
 class Module;
 class StructType;
 class Value;
+
+class DIBuilder;
+class DIFile;
+class DILocalScope;
 }
 
 namespace llvm {
@@ -97,6 +101,9 @@ protected:
   // FIXME: This doesn't need to be a pointer.
   std::unique_ptr<DCIRBuilder> Builder;
 
+  DIBuilder *DIB;
+  DIFile *DIF;
+
   // Valid only inside a Function.
   std::vector<Value *> RegPtrs;
   std::vector<AllocaInst *> RegAllocas;
@@ -104,6 +111,8 @@ protected:
   std::vector<unsigned> RegAssignments;
 
   Function *TheFunction;
+
+  DILocalScope *DIFnScope;
 
   // Valid only inside a BasicBlock.
   std::vector<Value *> RegVals;
@@ -133,8 +142,8 @@ public:
   //     void @__llvm_dc_print_regset_diff(i8* fn, %regset* v1, %regset* v2)
   Function *getOrCreateRegSetDiffFunction(bool Definition = false);
 
-  virtual void SwitchToModule(Module *TheModule);
-  virtual void SwitchToFunction(Function *TheFunction);
+  virtual void SwitchToModule(Module *TheModule, DIBuilder *DIB, DIFile *DIF);
+  virtual void SwitchToFunction(Function *TheFunction, DILocalScope *DIFnScope);
   virtual void SwitchToBasicBlock(BasicBlock *TheBB);
   void SwitchToInst(const MCDecodedInst &DecodedInst);
 

@@ -16,6 +16,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/InstrTypes.h"
@@ -43,8 +44,8 @@ DCInstrSema::DCInstrSema(const unsigned *OpcodeToSemaIdx,
                          const uint64_t *ConstantArray, DCRegisterSema &DRS)
     : OpcodeToSemaIdx(OpcodeToSemaIdx), SemanticsArray(SemanticsArray),
       ConstantArray(ConstantArray), DynTranslateAtCBPtr(0), Ctx(DRS.Ctx),
-      TheModule(0), DRS(DRS), FuncType(0), TheFunction(0), TheMCFunction(0),
-      BBByAddr(), ExitBB(0), CallBBs(), TheBB(0), TheMCBB(0),
+      TheModule(0), DRS(DRS), FuncType(0), DIB(), DIF(0), TheFunction(0),
+      TheMCFunction(0), BBByAddr(), ExitBB(0), CallBBs(), TheBB(0), TheMCBB(0),
       Builder(new DCIRBuilder(Ctx)), Idx(0), ResEVT(), Opcode(0), Vals(),
       CurrentInst(0) {}
 
@@ -180,7 +181,16 @@ void DCInstrSema::createExternalTailCallBB(uint64_t Addr) {
 
 void DCInstrSema::SwitchToModule(Module *M) {
   TheModule = M;
-  DRS.SwitchToModule(TheModule);
+
+  DIB.reset(new DIBuilder(*TheModule, /*AllowUnresolved=*/false));
+  // FIXME: Look into lang type
+  DIB->createCompileUnit(dwarf::DW_LANG_C, TheModule->getName(), "",
+                         /*Producer=*/"DC", /*isOptimized=*/false,
+                         /*Flags=*/"", /*RV=*/1);
+  DIF = DIB->createFile(TheModule->getName(), "");
+  DIFnTy = DIB->createSubroutineType(DIB->getOrCreateTypeArray({}));
+
+  DRS.SwitchToModule(TheModule, DIB.get(), DIF);
   FuncType = FunctionType::get(Type::getVoidTy(Ctx),
                                DRS.getRegSetType()->getPointerTo(),
                                /*isVarArg=*/false);
@@ -239,7 +249,15 @@ void DCInstrSema::SwitchToFunction(const MCFunction *MCFN) {
   // Create a br from the entry basic block to the first basic block, at StartAddr.
   Builder->CreateBr(getOrCreateBasicBlock(StartAddr));
 
-  DRS.SwitchToFunction(TheFunction);
+  DISubprogram *DIFn = DIB->createFunction(
+      DIF, TheFunction->getName(), TheFunction->getName(), DIF,
+      /*LineNo=*/StartAddr, DIFnTy, /*isLocalToUnit=*/false,
+      /*isDefinition=*/true, /*ScopeLine=*/StartAddr);
+  TheFunction->setSubprogram(DIFn);
+
+  DIFnScope = DIB->createLexicalBlock(DIFn, DIF, /*Line=*/StartAddr, /*Col=*/0);
+
+  DRS.SwitchToFunction(TheFunction, DIFnScope);
 }
 
 void DCInstrSema::prepareBasicBlockForInsertion(BasicBlock *BB) {

@@ -39,6 +39,7 @@
 namespace llvm {
 class MCContext;
 class DCTranslatedInst;
+class DIBuilder;
 
 class DCInstrSema {
 public:
@@ -93,6 +94,9 @@ protected:
   Module *TheModule;
   DCRegisterSema &DRS;
   FunctionType *FuncType;
+  std::unique_ptr<DIBuilder> DIB;
+  DIFile *DIF;
+  DISubroutineType *DIFnTy;
 
   // Following members are valid only inside a Function
   Function *TheFunction;
@@ -100,6 +104,7 @@ protected:
   std::map<uint64_t, BasicBlock *> BBByAddr;
   BasicBlock *ExitBB;
   std::vector<BasicBlock *> CallBBs;
+  DILocalScope *DIFnScope;
 
   // Following members are valid only inside a Basic Block
   BasicBlock *TheBB;

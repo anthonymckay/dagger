@@ -9,6 +9,7 @@
 
 #include "llvm/DC/DCRegisterSema.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/LLVMContext.h"
@@ -88,11 +89,16 @@ DCRegisterSema::DCRegisterSema(LLVMContext &Ctx, const MCRegisterInfo &MRI,
 
 DCRegisterSema::~DCRegisterSema() {}
 
-void DCRegisterSema::SwitchToModule(Module *Mod) {
+void DCRegisterSema::SwitchToModule(Module *Mod, DIBuilder *DB, DIFile *DF) {
   TheModule = Mod;
+  DIB = DB;
+  DIF = DF;
 }
 
-void DCRegisterSema::SwitchToFunction(Function *Fn) { TheFunction = Fn; }
+void DCRegisterSema::SwitchToFunction(Function *Fn, DILocalScope *FnScope) {
+  TheFunction = Fn;
+  DIFnScope = FnScope;
+}
 
 void DCRegisterSema::SwitchToBasicBlock(BasicBlock *TheBB) {
   // Clear all local values.
@@ -232,6 +238,30 @@ void DCRegisterSema::createLocalValueForReg(unsigned RegNo) {
   // Then, create an alloca for the register.
   RA = Builder->CreateAlloca(RI->getType());
   RA->setName(RegName);
+
+  {
+    // FIXME: Use a proper alignment.
+    // FIXME: Look into using better types.
+    unsigned SizeInBits = RegSizes[RegNo];
+    DIBasicType *DRegTy =
+        DIB->createBasicType("i" + utostr(SizeInBits), SizeInBits,
+                             /*AlignInBits=*/1, dwarf::DW_ATE_unsigned);
+    // FIXME: Use the function start address as "line no"
+    DILocalVariable *DRegVar =
+        DIB->createAutoVariable(DIFnScope, RegName, DIF, /*LineNo=*/4241,
+                                DRegTy, /*AlwaysPreserve=*/true);
+
+    DILocation *DRegLoc = DILocation::get(Ctx, /*Line=*/4242, /*Column=*/4242,
+                                          /*Scope=*/DIFnScope);
+
+    // Let DIB insert at the end of the block, and fix it ourselves.
+    Instruction *DRegDecl =
+        DIB->insertDeclare(RA, DRegVar, DIB->createExpression(), DRegLoc,
+                           Builder->GetInsertBlock());
+    DRegDecl->removeFromParent();
+    DRegDecl->insertAfter(RA);
+  }
+
   // Finally, initialize the local copy of the register.
   Builder->CreateStore(RI, RA);
   Builder->restoreIP(CurIP);
