@@ -20,6 +20,7 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataTypes.h"
+#include "llvm/Support/raw_ostream.h"
 #include <memory>
 #include <vector>
 
@@ -71,6 +72,10 @@ public:
     return const_func_iterator_range(func_begin(), func_end());
   }
   /// @}
+
+  uint64_t DebugLine = 0;
+  std::error_code DebugStreamEC;
+  raw_fd_ostream DebugStream;
 };
 
 }

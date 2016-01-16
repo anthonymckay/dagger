@@ -10,6 +10,7 @@
 #include "llvm/MC/MCAnalysis/MCModule.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/MC/MCAnalysis/MCFunction.h"
+#include "llvm/Support/FileSystem.h"
 #include <algorithm>
 
 using namespace llvm;
@@ -28,7 +29,8 @@ MCFunction *MCModule::findFunctionAt(uint64_t BeginAddr) {
   return FnIt->second;
 }
 
-MCModule::MCModule() {}
+MCModule::MCModule()
+    : DebugStream("c.dec.dbgasm", DebugStreamEC, sys::fs::F_RW) {}
 
 MCModule::~MCModule() {
 }

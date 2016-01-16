@@ -69,6 +69,9 @@ class DCTranslator {
 
   TransOpt::Level OptLevel;
 
+  MCInstPrinter &IP;
+  const MCSubtargetInfo &STI;
+
 public:
   DCTranslator(LLVMContext &Ctx, const DataLayout &DL,
                TransOpt::Level OptLevel, DCInstrSema &DIS, DCRegisterSema &DRS,

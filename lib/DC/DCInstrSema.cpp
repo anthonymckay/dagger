@@ -233,6 +233,7 @@ void DCInstrSema::SwitchToFunction(const MCFunction *MCFN) {
   // From now on we insert in the entry basic block.
   Builder->SetInsertPoint(TheBB);
 
+  // FIXME: DebugLocs
   if (EnableRegSetDiff) {
     Value *SavedRegSet = Builder->CreateAlloca(DRS.getRegSetType());
     Value *RegSetArg = &TheFunction->getArgumentList().front();
@@ -260,9 +261,6 @@ void DCInstrSema::SwitchToFunction(const MCFunction *MCFN) {
     ReturnInst::Create(Ctx, ExitBB);
   }
 
-  // Create a br from the entry basic block to the first basic block, at StartAddr.
-  Builder->CreateBr(getOrCreateBasicBlock(StartAddr));
-
   DISubprogram *DIFn = DIB->createFunction(
       DIF, TheFunction->getName(), TheFunction->getName(), DIF,
       /*LineNo=*/StartAddr, DIFnTy, /*isLocalToUnit=*/false,
@@ -270,6 +268,12 @@ void DCInstrSema::SwitchToFunction(const MCFunction *MCFN) {
   TheFunction->setSubprogram(DIFn);
 
   DIFnScope = DIB->createLexicalBlock(DIFn, DIF, /*Line=*/StartAddr, /*Col=*/0);
+
+  Builder->SetCurrentDebugLocation(
+      DILocation::get(Ctx, MCFN->DebugLine, /*Column=*/0, DIFnScope));
+
+  // Create a br from the entry basic block to the first basic block, at StartAddr.
+  Builder->CreateBr(getOrCreateBasicBlock(StartAddr));
 
   DRS.SwitchToFunction(TheFunction, DIFnScope);
 }
@@ -298,6 +302,9 @@ void DCInstrSema::SwitchToBasicBlock(uint64_t BeginAddr) {
   // The PC at the start of the basic block is known, just set it.
   unsigned PC = DRS.MRI.getProgramCounter();
   setReg(PC, ConstantInt::get(DRS.getRegType(PC), BeginAddr));
+
+  Builder->SetCurrentDebugLocation(
+      DILocation::get(Ctx, TheMCBB->DebugLine, /*Column=*/0, DIFnScope));
 }
 
 uint64_t DCInstrSema::getBasicBlockStartAddress() const {
@@ -399,6 +406,12 @@ DCInstrSema::translateInst(const MCDecodedInst &DecodedInst,
   CurrentInst = &DecodedInst;
   CurrentTInst = &TranslatedInst;
   DRS.SwitchToInst(DecodedInst);
+
+  // FIXME: hack because we know MCBB uses a std::vector.
+  uint64_t DebugLine = TheMCBB->DebugLine +
+                       std::distance(&*TheMCBB->begin(), CurrentInst);
+  Builder->SetCurrentDebugLocation(
+      DILocation::get(Ctx, DebugLine, /*Column=*/0, DIFnScope));
 
   if (EnableInstAddrSave) {
     ConstantInt *CurIVal =

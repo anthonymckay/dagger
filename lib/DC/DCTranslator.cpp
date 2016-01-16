@@ -15,6 +15,7 @@
 #include "llvm/MC/MCAnalysis/MCFunction.h"
 #include "llvm/MC/MCAnalysis/MCModule.h"
 #include "llvm/MC/MCObjectDisassembler.h"
+#include "llvm/MC/MCInstPrinter.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -36,7 +37,7 @@ DCTranslator::DCTranslator(LLVMContext &Ctx, const DataLayout &DL,
     : Ctx(Ctx), DL(DL), ModuleSet(), MCOD(MCOD), MCM(MCM),
       CurrentModule(nullptr), CurrentFPM(),
       EnableIRAnnotation(EnableIRAnnotation), DTIT(), DIS(DIS),
-      OptLevel(TransOptLevel) {
+      OptLevel(TransOptLevel), IP(IP), STI(STI) {
 
 
   initializeTranslationModule();
@@ -164,6 +165,21 @@ void DCTranslator::translateFunction(
   // If we already translated this function, bail out.
   if (!DIS.getFunction(MCFN->getEntryBlock()->getStartAddr())->empty())
     return;
+
+  // Emit the disassembly into the debug file first.
+  uint64_t DebugLine = MCM.DebugLine;
+  MCFN->DebugLine = DebugLine++;
+  MCM.DebugStream << MCFN->getName() << ":\n";
+  for (auto *BB : *MCFN) {
+    BB->DebugLine = DebugLine++;
+    MCM.DebugStream << "  bb_" << utohexstr(BB->getStartAddr()) << ":\n";
+    for (auto &I : *BB) {
+      DebugLine++;
+      IP.printInst(&I.Inst, MCM.DebugStream, "", STI);
+      MCM.DebugStream << "\n";
+    }
+  }
+  MCM.DebugLine = DebugLine;
 
   DIS.SwitchToFunction(MCFN);
 

@@ -82,6 +82,7 @@ public:
 
   /// \name Instruction list access
   /// @{
+  // FIXME: why const_ ?
   typedef InstListTy::const_iterator const_iterator;
   const_iterator begin() const { return Insts.begin(); }
   const_iterator end()   const { return Insts.end(); }
@@ -112,6 +113,8 @@ public:
   void addPredecessor(const MCBasicBlock *MCBB);
   bool isPredecessor(const MCBasicBlock *MCBB) const;
   /// @}
+
+  uint64_t DebugLine = 0;
 };
 
 /// \brief Represents a function in machine code, containing MCBasicBlocks.
@@ -182,6 +185,8 @@ public:
   const MCBasicBlock *findFirstAfter(uint64_t Addr) const;
         MCBasicBlock *findFirstAfter(uint64_t Addr);
   /// @}
+
+  uint64_t DebugLine = 0;
 };
 
 }
