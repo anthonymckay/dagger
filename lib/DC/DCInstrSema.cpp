@@ -28,6 +28,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCAnalysis/MCFunction.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
@@ -185,16 +186,22 @@ void DCInstrSema::SwitchToModule(Module *M) {
   if (DIB)
     DIB->finalize();
   DIB.reset(new DIBuilder(*TheModule, /*AllowUnresolved=*/false));
+
+  SmallString<128> CurrentPath;
+  if (sys::fs::current_path(CurrentPath))
+    CurrentPath.clear();
+
   // FIXME: Look into lang type
-  DIB->createCompileUnit(dwarf::DW_LANG_C, TheModule->getName(), "",
+  DIB->createCompileUnit(dwarf::DW_LANG_C, "c.dec.dbgasm", CurrentPath,
                          /*Producer=*/"DC", /*isOptimized=*/false,
-                         /*Flags=*/"", /*RV=*/1);
+                         /*Flags=*/"", /*RV=*/0);
 
   // FIXME: Meaning?
   TheModule->addModuleFlag(Module::Error, "Dwarf Version", 2);
   TheModule->addModuleFlag(Module::Error, "Debug Info Version", 3);
 
-  DIF = DIB->createFile(TheModule->getName(), "");
+  // FIXME: the CU seems to have a file already, how can we get it?
+  DIF = DIB->createFile("c.dec.dbgasm", CurrentPath);
   DIFnTy = DIB->createSubroutineType(DIB->getOrCreateTypeArray({}));
 
   DRS.SwitchToModule(TheModule, DIB.get(), DIF);
