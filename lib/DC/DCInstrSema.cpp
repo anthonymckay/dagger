@@ -189,6 +189,11 @@ void DCInstrSema::SwitchToModule(Module *M) {
   DIB->createCompileUnit(dwarf::DW_LANG_C, TheModule->getName(), "",
                          /*Producer=*/"DC", /*isOptimized=*/false,
                          /*Flags=*/"", /*RV=*/1);
+
+  // FIXME: Meaning?
+  TheModule->addModuleFlag(Module::Error, "Dwarf Version", 2);
+  TheModule->addModuleFlag(Module::Error, "Debug Info Version", 3);
+
   DIF = DIB->createFile(TheModule->getName(), "");
   DIFnTy = DIB->createSubroutineType(DIB->getOrCreateTypeArray({}));
 
