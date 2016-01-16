@@ -182,6 +182,8 @@ void DCInstrSema::createExternalTailCallBB(uint64_t Addr) {
 void DCInstrSema::SwitchToModule(Module *M) {
   TheModule = M;
 
+  if (DIB)
+    DIB->finalize();
   DIB.reset(new DIBuilder(*TheModule, /*AllowUnresolved=*/false));
   // FIXME: Look into lang type
   DIB->createCompileUnit(dwarf::DW_LANG_C, TheModule->getName(), "",
